@@ -1,0 +1,41 @@
+Mulai
+
+// Langkah 1: Ambil daftar aktivitas
+Buat daftar_kegiatan = [daftar semua aktivitas yang ingin dilakukan]
+
+// Langkah 2: Untuk setiap kegiatan, tanyakan dua hal
+Untuk setiap kegiatan dalam daftar_kegiatan:
+    Tampilkan kegiatan
+    Tanyakan: Apakah kegiatan ini PENTING? (ya/tidak)
+    Tanyakan: Apakah kegiatan ini MENDESAK? (ya/tidak)
+
+    // Langkah 3: Masukkan ke dalam kuadran yang sesuai
+    Jika PENTING dan MENDESAK:
+        Tambahkan ke Kuadran_I
+    Jika PENTING dan TIDAK MENDESAK:
+        Tambahkan ke Kuadran_II
+    Jika TIDAK PENTING dan MENDESAK:
+        Tambahkan ke Kuadran_III
+    Jika TIDAK PENTING dan TIDAK MENDESAK:
+        Tambahkan ke Kuadran_IV
+
+// Langkah 4: Tampilkan hasil pengelompokan
+Tampilkan "Kegiatan dalam Kuadran I (Penting & Mendesak):"
+Tampilkan semua dari Kuadran_I
+
+Tampilkan "Kegiatan dalam Kuadran II (Penting & Tidak Mendesak):"
+Tampilkan semua dari Kuadran_II
+
+Tampilkan "Kegiatan dalam Kuadran III (Tidak Penting & Mendesak):"
+Tampilkan semua dari Kuadran_III
+
+Tampilkan "Kegiatan dalam Kuadran IV (Tidak Penting & Tidak Mendesak):"
+Tampilkan semua dari Kuadran_IV
+
+// Langkah 5: Rekomendasi Tindakan
+Tampilkan:
+    - "Kerjakan Kuadran I segera!"
+    - "Jadwalkan Kuadran II untuk pengembangan jangka panjang"
+    - "Minimalkan Kuadran III dan IV, hindari jika bisa"
+
+Selesai
