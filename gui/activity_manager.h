@@ -1,22 +1,38 @@
 #ifndef ACTIVITY_MANAGER_H
 #define ACTIVITY_MANAGER_H
 
+#include <iostream>
 #include <vector>
 #include <string>
+#include <sstream>
 
-struct Activity {
+class Activity {
+public:
     std::string name;
-    bool important;
-    bool urgent;
+    bool isImportant;
+    bool isUrgent;
+
+    Activity(std::string name, bool isImportant, bool isUrgent);
 };
 
 class ActivityManager {
 private:
-    std::vector<Activity> q1, q2, q3, q4;
+    std::vector<Activity> allActivities;
+    std::vector<Activity> quadrantI;
+    std::vector<Activity> quadrantII;
+    std::vector<Activity> quadrantIII;
+    std::vector<Activity> quadrantIV;
+
+    bool askYesNo(const std::string& question);
 
 public:
-    void addActivity(const std::string& name, bool important, bool urgent);
-    void renderUI();
+    void addActivity(const std::string& name, bool isImportant, bool isUrgent);
+    void collectActivities();
+    void categorizeActivities();
+    void displayQuadrants();
+    void showRecommendations();
+    std::string getQuadrantAsString() const;
+    std::string getRecommendations() const;
 };
 
 #endif

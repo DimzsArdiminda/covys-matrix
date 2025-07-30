@@ -1,76 +1,200 @@
-#include "activity_manager.h"
-#include "imgui.h"
-#include "backends/imgui_impl_glfw.h"
-#include "backends/imgui_impl_opengl3.h"
-
-#include <GLFW/glfw3.h>
-#include <vector>
+#include <windows.h>
 #include <string>
+#include <vector>
 
-int main() {
-    // Setup GLFW
-    if (!glfwInit()) return -1;
-    GLFWwindow* window = glfwCreateWindow(800, 600, "Covey's Matrix Manager", NULL, NULL);
-    glfwMakeContextCurrent(window);
-    glfwSwapInterval(1); // Enable vsync
+#include "activity_manager.h"
 
-    // Setup Dear ImGui
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGui_ImplGlfw_InitForOpenGL(window, true);
-    ImGui_ImplOpenGL3_Init("#version 130");
+const char g_szClassName[] = "myWindowClass";
+std::string contentToDisplay;
 
-    ImGui::StyleColorsDark();
+// Control IDs
+#define ID_EDIT_ACTIVITY    1001
+#define ID_BTN_IMPORTANT    1002
+#define ID_BTN_NOT_IMPORTANT 1003
+#define ID_BTN_URGENT       1004
+#define ID_BTN_NOT_URGENT   1005
+#define ID_BTN_ADD          1006
+#define ID_BTN_SHOW_RESULT  1007
+#define ID_TEXT_RESULT      1008
 
-    ActivityManager manager;
-    static char activityName[128] = "";
-    static bool isImportant = false;
-    static bool isUrgent = false;
+// Global variables
+ActivityManager manager;
+HWND hEditActivity, hBtnImportant, hBtnNotImportant, hBtnUrgent, hBtnNotUrgent;
+HWND hBtnAdd, hBtnShowResult, hTextResult;
+bool isImportant = false, isUrgent = false;
 
-    while (!glfwWindowShouldClose(window)) {
-        glfwPollEvents();
+// Window Proc
+LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    switch (msg)
+    {
+    case WM_CREATE:
+    {
+        // Create input field for activity name
+        CreateWindowA("STATIC", "Nama Aktivitas:", WS_VISIBLE | WS_CHILD,
+                     20, 20, 120, 20, hwnd, NULL, NULL, NULL);
+        
+        hEditActivity = CreateWindowA("EDIT", "", WS_VISIBLE | WS_CHILD | WS_BORDER,
+                                     20, 45, 300, 25, hwnd, (HMENU)ID_EDIT_ACTIVITY, NULL, NULL);
 
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
+        // Important buttons
+        CreateWindowA("STATIC", "Apakah penting?", WS_VISIBLE | WS_CHILD,
+                     20, 85, 120, 20, hwnd, NULL, NULL, NULL);
+        
+        hBtnImportant = CreateWindowA("BUTTON", "Ya, Penting", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
+                                     20, 110, 100, 30, hwnd, (HMENU)ID_BTN_IMPORTANT, NULL, NULL);
+        
+        hBtnNotImportant = CreateWindowA("BUTTON", "Tidak Penting", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
+                                        130, 110, 100, 30, hwnd, (HMENU)ID_BTN_NOT_IMPORTANT, NULL, NULL);
 
-        ImGui::Begin("Covey's Matrix Activity Manager");
+        // Urgent buttons
+        CreateWindowA("STATIC", "Apakah mendesak?", WS_VISIBLE | WS_CHILD,
+                     20, 155, 120, 20, hwnd, NULL, NULL, NULL);
+        
+        hBtnUrgent = CreateWindowA("BUTTON", "Ya, Mendesak", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
+                                  20, 180, 100, 30, hwnd, (HMENU)ID_BTN_URGENT, NULL, NULL);
+        
+        hBtnNotUrgent = CreateWindowA("BUTTON", "Tidak Mendesak", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
+                                     130, 180, 100, 30, hwnd, (HMENU)ID_BTN_NOT_URGENT, NULL, NULL);
 
-        ImGui::InputText("Nama Aktivitas", activityName, IM_ARRAYSIZE(activityName));
-        ImGui::Checkbox("Penting", &isImportant);
-        ImGui::Checkbox("Mendesak", &isUrgent);
+        // Add and Show Result buttons
+        hBtnAdd = CreateWindowA("BUTTON", "Tambah Aktivitas", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
+                               20, 230, 120, 30, hwnd, (HMENU)ID_BTN_ADD, NULL, NULL);
+        
+        hBtnShowResult = CreateWindowA("BUTTON", "Tampilkan Hasil", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
+                                      150, 230, 120, 30, hwnd, (HMENU)ID_BTN_SHOW_RESULT, NULL, NULL);
 
-        if (ImGui::Button("Tambah Kegiatan")) {
-            if (std::string(activityName).length() > 0) {
-                manager.addActivity(activityName, isImportant, isUrgent);
-                strcpy(activityName, "");
+        // Result display area
+        hTextResult = CreateWindowA("EDIT", "", WS_VISIBLE | WS_CHILD | WS_BORDER | WS_VSCROLL | 
+                                   ES_MULTILINE | ES_READONLY,
+                                   20, 280, 520, 200, hwnd, (HMENU)ID_TEXT_RESULT, NULL, NULL);
+    }
+    break;
+
+    case WM_COMMAND:
+    {
+        switch (LOWORD(wParam))
+        {
+        case ID_BTN_IMPORTANT:
+            isImportant = true;
+            SetWindowTextA(hBtnImportant, "[✓] Ya, Penting");
+            SetWindowTextA(hBtnNotImportant, "Tidak Penting");
+            break;
+            
+        case ID_BTN_NOT_IMPORTANT:
+            isImportant = false;
+            SetWindowTextA(hBtnImportant, "Ya, Penting");
+            SetWindowTextA(hBtnNotImportant, "[✓] Tidak Penting");
+            break;
+            
+        case ID_BTN_URGENT:
+            isUrgent = true;
+            SetWindowTextA(hBtnUrgent, "[✓] Ya, Mendesak");
+            SetWindowTextA(hBtnNotUrgent, "Tidak Mendesak");
+            break;
+            
+        case ID_BTN_NOT_URGENT:
+            isUrgent = false;
+            SetWindowTextA(hBtnUrgent, "Ya, Mendesak");
+            SetWindowTextA(hBtnNotUrgent, "[✓] Tidak Mendesak");
+            break;
+            
+        case ID_BTN_ADD:
+        {
+            char activityName[256];
+            GetWindowTextA(hEditActivity, activityName, sizeof(activityName));
+            
+            if (strlen(activityName) > 0) {
+                manager.addActivity(std::string(activityName), isImportant, isUrgent);
+                SetWindowTextA(hEditActivity, ""); // Clear input
+                
+                // Reset selections
                 isImportant = false;
                 isUrgent = false;
+                SetWindowTextA(hBtnImportant, "Ya, Penting");
+                SetWindowTextA(hBtnNotImportant, "Tidak Penting");
+                SetWindowTextA(hBtnUrgent, "Ya, Mendesak");
+                SetWindowTextA(hBtnNotUrgent, "Tidak Mendesak");
+                
+                MessageBoxA(hwnd, "Aktivitas berhasil ditambahkan!", "Info", MB_OK | MB_ICONINFORMATION);
+            } else {
+                MessageBoxA(hwnd, "Mohon masukkan nama aktivitas!", "Peringatan", MB_OK | MB_ICONWARNING);
             }
         }
+        break;
+        
+        case ID_BTN_SHOW_RESULT:
+        {
+            manager.categorizeActivities();
+            std::string result = manager.getQuadrantAsString() + "\n" + manager.getRecommendations();
+            SetWindowTextA(hTextResult, result.c_str());
+        }
+        break;
+        }
+    }
+    break;
 
-        ImGui::Separator();
-        manager.renderUI();
+    case WM_PAINT:
+    {
+        PAINTSTRUCT ps;
+        HDC hdc = BeginPaint(hwnd, &ps);
+        EndPaint(hwnd, &ps);
+    }
+    break;
+    case WM_CLOSE:
+        DestroyWindow(hwnd);
+        break;
+    case WM_DESTROY:
+        PostQuitMessage(0);
+        break;
+    default:
+        return DefWindowProc(hwnd, msg, wParam, lParam);
+    }
+    return 0;
+}
 
-        ImGui::End();
-        ImGui::Render();
+// Main program (WinMain)
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
+                   LPSTR lpCmdLine, int nCmdShow)
+{
+    // Setup window
+    WNDCLASSEXA wc = { 0 };
+    wc.cbSize = sizeof(WNDCLASSEXA);
+    wc.lpfnWndProc = WndProc;
+    wc.hInstance = hInstance;
+    wc.lpszClassName = g_szClassName;
+    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+    wc.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
+    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
 
-        int display_w, display_h;
-        glfwGetFramebufferSize(window, &display_w, &display_h);
-        glViewport(0, 0, display_w, display_h);
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-        glfwSwapBuffers(window);
+    if (!RegisterClassExA(&wc)) {
+        MessageBoxA(NULL, "Window Registration Failed!", "Error!", MB_ICONEXCLAMATION | MB_OK);
+        return 0;
     }
 
-    // Cleanup
-    ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
-    glfwDestroyWindow(window);
-    glfwTerminate();
+    HWND hwnd = CreateWindowExA(
+        WS_EX_CLIENTEDGE,
+        g_szClassName,
+        "Activity Manager - Eisenhower Matrix",
+        WS_OVERLAPPEDWINDOW,
+        CW_USEDEFAULT, CW_USEDEFAULT, 600, 550,
+        NULL, NULL, hInstance, NULL);
 
-    return 0;
+    if (hwnd == NULL) {
+        MessageBoxA(NULL, "Window Creation Failed!", "Error!", MB_ICONEXCLAMATION | MB_OK);
+        return 0;
+    }
+
+    ShowWindow(hwnd, nCmdShow);
+    UpdateWindow(hwnd);
+
+    // Loop pesan GUI
+    MSG Msg;
+    while (GetMessage(&Msg, NULL, 0, 0) > 0) {
+        TranslateMessage(&Msg);
+        DispatchMessage(&Msg);
+    }
+
+    return Msg.wParam;
 }

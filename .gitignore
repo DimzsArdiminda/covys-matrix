@@ -1,1 +1,5 @@
 note
+/cli/exe/*.exe
+/test/HelloWorld.cpp
+/test/HelloWorld.exe
+/gui/lib/*
