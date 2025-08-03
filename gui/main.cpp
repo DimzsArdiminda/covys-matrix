@@ -32,6 +32,9 @@ HWND hBtnAdd, hBtnShowResult, hTextResult, hBtnLoadData, hBtnClearData;
 HWND hEditSearch, hBtnHome;
 bool isImportant = false, isUrgent = false;
 bool drawCustomTable = false;
+bool drawSearchResults = false;
+std::vector<Activity> currentSearchResults;
+std::string currentSearchKeyword;
 
 // View management
 enum class ViewMode { HOME, ADD, VIEW };
@@ -150,6 +153,90 @@ void DrawTableDirect(HDC hdc, HWND hwnd) {
             (int)quadI.size(), (int)quadII.size(), (int)quadIII.size(), (int)quadIV.size(),
             (int)allActivities.size());
     TextOutA(hdc, x, y, summary, strlen(summary));
+    
+    // Cleanup
+    SelectObject(hdc, hOldFont);
+    DeleteObject(hFont);
+}
+
+// Fungsi untuk menggambar hasil pencarian dalam format tabel
+void DrawSearchResults(HDC hdc, HWND hwnd) {
+    if (!drawSearchResults) return;
+    
+    // Setup font
+    HFONT hFont = CreateFontA(14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+                              ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                              DEFAULT_QUALITY, FIXED_PITCH | FF_MODERN, "Courier New");
+    HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
+    
+    SetBkMode(hdc, TRANSPARENT);
+    SetTextColor(hdc, RGB(0, 0, 0));
+    
+    int x = 20;
+    int y = 100;
+    int lineHeight = 20;
+    
+    // Draw search title
+    SetTextColor(hdc, RGB(200, 0, 0));
+    char searchTitle[100];
+    sprintf(searchTitle, "*** HASIL PENCARIAN: \"%s\" ***", currentSearchKeyword.c_str());
+    TextOutA(hdc, x, y, searchTitle, strlen(searchTitle));
+    y += lineHeight * 2;
+    
+    SetTextColor(hdc, RGB(0, 0, 0));
+    
+    if (currentSearchResults.empty()) {
+        TextOutA(hdc, x, y, "[!] Tidak ada aktivitas yang ditemukan.", 36);
+        y += lineHeight;
+        TextOutA(hdc, x, y, "    Coba gunakan kata kunci yang berbeda.", 41);
+    } else {
+        char foundText[50];
+        sprintf(foundText, "[+] Ditemukan %d aktivitas:", (int)currentSearchResults.size());
+        TextOutA(hdc, x, y, foundText, strlen(foundText));
+        y += lineHeight * 2;
+        
+        // Draw table header
+        const char* lines[] = {
+            "+-----+--------------------------------+----------+----------+----------+",
+            "| No  | Nama Aktivitas                 | Penting  | Mendesak | Kuadran  |",
+            "+-----+--------------------------------+----------+----------+----------+"
+        };
+        
+        for (int i = 0; i < 3; i++) {
+            TextOutA(hdc, x, y, lines[i], strlen(lines[i]));
+            y += lineHeight;
+        }
+        
+        // Draw search results
+        int no = 1;
+        for (const auto& activity : currentSearchResults) {
+            std::string name = activity.name;
+            if (name.length() > 30) name = name.substr(0, 27) + "...";
+            
+            // Determine quadrant
+            const char* quadrant;
+            if (activity.isImportant && activity.isUrgent) {
+                quadrant = "I";
+            } else if (activity.isImportant && !activity.isUrgent) {
+                quadrant = "II";
+            } else if (!activity.isImportant && activity.isUrgent) {
+                quadrant = "III";
+            } else {
+                quadrant = "IV";
+            }
+            
+            char line[100];
+            sprintf(line, "| %3d | %-30s | %-8s | %-8s | %-8s |",
+                    no++, name.c_str(),
+                    activity.isImportant ? "Ya" : "Tidak",
+                    activity.isUrgent ? "Ya" : "Tidak", quadrant);
+            TextOutA(hdc, x, y, line, strlen(line));
+            y += lineHeight;
+        }
+        
+        // Draw table footer
+        TextOutA(hdc, x, y, "+-----+--------------------------------+----------+----------+----------+", 69);
+    }
     
     // Cleanup
     SelectObject(hdc, hOldFont);
@@ -280,23 +367,18 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
         hEditSearch = CreateWindowA("EDIT", "", 
                                    WS_CHILD | WS_BORDER | ES_AUTOHSCROLL,
-                                   40, 95, 300, 25, hwnd, (HMENU)ID_EDIT_SEARCH, NULL, NULL);
+                                   40, 95, 380, 25, hwnd, (HMENU)ID_EDIT_SEARCH, NULL, NULL);
         viewControls.push_back(hEditSearch);
-
-        hBtnShowResult = CreateWindowA("BUTTON", "[R] Refresh", 
-                                      WS_CHILD | BS_PUSHBUTTON,
-                                      350, 95, 80, 25, hwnd, (HMENU)ID_BTN_SHOW_RESULT, NULL, NULL);
-        viewControls.push_back(hBtnShowResult);
 
         HWND hBtnSearch = CreateWindowA("BUTTON", "[S] Cari", 
                                        WS_CHILD | BS_PUSHBUTTON,
-                                       440, 95, 80, 25, hwnd, (HMENU)3002, NULL, NULL);
+                                       430, 95, 90, 25, hwnd, (HMENU)3002, NULL, NULL);
         viewControls.push_back(hBtnSearch);
 
-        // Results area
+        // Results area - posisikan di luar area visible secara default
         hTextResult = CreateWindowA("EDIT", "", 
                                    WS_CHILD | WS_BORDER | WS_VSCROLL | ES_MULTILINE | ES_READONLY,
-                                   40, 140, 480, 300, hwnd, (HMENU)ID_TEXT_RESULT, NULL, NULL);
+                                   -1000, -1000, 480, 300, hwnd, (HMENU)ID_TEXT_RESULT, NULL, NULL);
         viewControls.push_back(hTextResult);
 
         // Initialize view - show only HOME
@@ -315,7 +397,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         {
         case ID_BTN_TO_ADD:  // Tombol "Tambah Kegiatan"
             drawCustomTable = false;
-            ShowWindow(hTextResult, SW_SHOW);
+            drawSearchResults = false;
+            // Move text control back to visible area for other uses
+            MoveWindow(hTextResult, 40, 140, 480, 300, TRUE);
             SwitchView(ViewMode::ADD);
             // Clear the background to remove table remnants
             InvalidateRect(hwnd, NULL, TRUE);
@@ -324,15 +408,18 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         case ID_BTN_TO_VIEW:  // Tombol "Tampilkan Kegiatan"
             manager.categorizeActivities();
             drawCustomTable = true;
-            // Hide the text result control and draw directly on window
-            ShowWindow(hTextResult, SW_HIDE);
+            drawSearchResults = false;
+            // Move text control out of view and show table
+            MoveWindow(hTextResult, -1000, -1000, 480, 300, TRUE);
             SwitchView(ViewMode::VIEW);
             InvalidateRect(hwnd, NULL, TRUE); // Force repaint
             break;
 
         case ID_BTN_HOME:  // Tombol kembali ke beranda
             drawCustomTable = false;
-            ShowWindow(hTextResult, SW_SHOW);
+            drawSearchResults = false;
+            // Move text control back to visible area
+            MoveWindow(hTextResult, 40, 140, 480, 300, TRUE);
             SwitchView(ViewMode::HOME);
             // Clear the background to remove table remnants
             InvalidateRect(hwnd, NULL, TRUE);
@@ -384,21 +471,14 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 // Auto-switch to view and update display
                 manager.categorizeActivities();
                 drawCustomTable = true;
-                ShowWindow(hTextResult, SW_HIDE);
+                drawSearchResults = false;
+                // Move text control out of view for custom drawing
+                MoveWindow(hTextResult, -1000, -1000, 480, 300, TRUE);
                 SwitchView(ViewMode::VIEW);
                 InvalidateRect(hwnd, NULL, TRUE); // Force repaint
             } else {
                 MessageBoxA(hwnd, "Mohon masukkan nama aktivitas terlebih dahulu!", "Peringatan", MB_OK | MB_ICONWARNING);
             }
-        }
-        break;
-        
-        case ID_BTN_SHOW_RESULT:
-        {
-            manager.categorizeActivities();
-            drawCustomTable = true;
-            ShowWindow(hTextResult, SW_HIDE);
-            InvalidateRect(hwnd, NULL, TRUE); // Force repaint
         }
         break;
 
@@ -408,46 +488,22 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             GetWindowTextA(hEditSearch, keyword, sizeof(keyword));
             
             if (strlen(keyword) > 0) {
-                // For search, still use text control for now
+                // Search and display results in table format
+                currentSearchResults = manager.searchActivities(std::string(keyword));
+                currentSearchKeyword = std::string(keyword);
+                
                 drawCustomTable = false;
-                ShowWindow(hTextResult, SW_SHOW);
-                
-                auto searchResults = manager.searchActivities(std::string(keyword));
-                std::stringstream ss;
-                ss << "*** HASIL PENCARIAN: \"" << keyword << "\" ***\n";
-                ss << "===============================================\n\n";
-                
-                if (searchResults.empty()) {
-                    ss << "[!] Tidak ada aktivitas yang ditemukan.\n";
-                    ss << "    Coba gunakan kata kunci yang berbeda.\n";
-                } else {
-                    ss << "[+] Ditemukan " << searchResults.size() << " aktivitas:\n\n";
-                    
-                    // Format tabel untuk hasil pencarian
-                    ss << "+-----+--------------------------------+----------+----------+\n";
-                    ss << "| No  | Nama Aktivitas                 | Penting  | Mendesak |\n";
-                    ss << "+-----+--------------------------------+----------+----------+\n";
-                    
-                    for (size_t i = 0; i < searchResults.size(); ++i) {
-                        const auto& activity = searchResults[i];
-                        std::string name = activity.name;
-                        if (name.length() > 30) {
-                            name = name.substr(0, 27) + "...";
-                        }
-                        
-                        ss << "| " << std::setw(3) << (i + 1) << " | ";
-                        ss << std::left << std::setw(30) << name << " | ";
-                        ss << std::setw(8) << (activity.isImportant ? "Ya" : "Tidak") << " | ";
-                        ss << std::setw(8) << (activity.isUrgent ? "Ya" : "Tidak") << " |\n";
-                    }
-                    ss << "+-----+--------------------------------+----------+----------+\n";
-                }
-                SetWindowTextA(hTextResult, ss.str().c_str());
+                drawSearchResults = true;
+                // Move text control out of view for custom drawing
+                MoveWindow(hTextResult, -1000, -1000, 480, 300, TRUE);
+                InvalidateRect(hwnd, NULL, TRUE);
             } else {
                 // Jika tidak ada keyword, tampilkan semua dengan custom drawing
                 manager.categorizeActivities();
                 drawCustomTable = true;
-                ShowWindow(hTextResult, SW_HIDE);
+                drawSearchResults = false;
+                // Move text control out of view for custom drawing
+                MoveWindow(hTextResult, -1000, -1000, 480, 300, TRUE);
                 InvalidateRect(hwnd, NULL, TRUE);
             }
         }
@@ -462,7 +518,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             if (currentView == ViewMode::VIEW) {
                 manager.categorizeActivities();
                 drawCustomTable = true;
-                ShowWindow(hTextResult, SW_HIDE);
+                drawSearchResults = false;
+                // Move text control out of view for custom drawing
+                MoveWindow(hTextResult, -1000, -1000, 480, 300, TRUE);
                 InvalidateRect(hwnd, NULL, TRUE); // Force repaint
             }
         }
@@ -482,7 +540,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 if (currentView == ViewMode::VIEW) {
                     manager.categorizeActivities();
                     drawCustomTable = true;
-                    ShowWindow(hTextResult, SW_HIDE);
+                    drawSearchResults = false;
+                    // Move text control out of view for custom drawing
+                    MoveWindow(hTextResult, -1000, -1000, 480, 300, TRUE);
                     InvalidateRect(hwnd, NULL, TRUE); // Force repaint
                 }
             }
@@ -502,9 +562,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         GetClientRect(hwnd, &clientRect);
         FillRect(hdc, &clientRect, (HBRUSH)(COLOR_WINDOW + 1));
         
-        // Draw custom table if enabled
-        if (drawCustomTable && currentView == ViewMode::VIEW) {
-            DrawTableDirect(hdc, hwnd);
+        // Draw appropriate content based on mode
+        if (currentView == ViewMode::VIEW) {
+            if (drawSearchResults) {
+                DrawSearchResults(hdc, hwnd);
+            } else if (drawCustomTable) {
+                DrawTableDirect(hdc, hwnd);
+            }
         }
         
         EndPaint(hwnd, &ps);
