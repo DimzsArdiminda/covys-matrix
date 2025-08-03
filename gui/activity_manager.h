@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 #include <sstream>
+#include <fstream>
 
 class Activity {
 public:
@@ -33,6 +34,11 @@ public:
     void showRecommendations();
     std::string getQuadrantAsString() const;
     std::string getRecommendations() const;
+    
+    // CSV functions
+    void saveToCSV(const std::string& filename = "activities.csv") const;
+    void loadFromCSV(const std::string& filename = "activities.csv");
+    void clearAllActivities();
 };
 
 #endif

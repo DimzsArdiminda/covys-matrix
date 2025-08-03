@@ -6,6 +6,8 @@ Activity::Activity(std::string name, bool isImportant, bool isUrgent)
 
 void ActivityManager::addActivity(const std::string& name, bool isImportant, bool isUrgent) {
     allActivities.emplace_back(name, isImportant, isUrgent);
+    // Auto-save to CSV after adding activity
+    saveToCSV();
 }
 
 bool ActivityManager::askYesNo(const std::string& question) {
@@ -104,4 +106,79 @@ std::string ActivityManager::getRecommendations() const {
            "  - Kerjakan Kuadran I segera!\n"
            "  - Jadwalkan Kuadran II untuk pengembangan jangka panjang\n"
            "  - Minimalkan Kuadran III dan IV, hindari jika bisa\n";
+}
+
+void ActivityManager::saveToCSV(const std::string& filename) const {
+    std::ofstream file(filename);
+    if (file.is_open()) {
+        // Write header
+        file << "Name,Important,Urgent\n";
+        
+        // Write activities
+        for (const auto& activity : allActivities) {
+            file << "\"" << activity.name << "\"," 
+                 << (activity.isImportant ? "1" : "0") << ","
+                 << (activity.isUrgent ? "1" : "0") << "\n";
+        }
+        
+        file.close();
+    }
+}
+
+void ActivityManager::loadFromCSV(const std::string& filename) {
+    std::ifstream file(filename);
+    if (file.is_open()) {
+        std::string line;
+        
+        // Skip header line
+        if (std::getline(file, line)) {
+            // Read data lines
+            while (std::getline(file, line)) {
+                if (line.empty()) continue;
+                
+                // Parse CSV line
+                std::stringstream ss(line);
+                std::string name, importantStr, urgentStr;
+                
+                // Parse name (handle quoted strings)
+                if (line[0] == '"') {
+                    size_t closeQuote = line.find('"', 1);
+                    if (closeQuote != std::string::npos) {
+                        name = line.substr(1, closeQuote - 1);
+                        std::string remaining = line.substr(closeQuote + 1);
+                        
+                        // Parse remaining comma-separated values
+                        std::stringstream remainingSS(remaining);
+                        std::string temp;
+                        if (std::getline(remainingSS, temp, ',')) {
+                            if (std::getline(remainingSS, importantStr, ',')) {
+                                std::getline(remainingSS, urgentStr);
+                            }
+                        }
+                    }
+                } else {
+                    // Simple parsing for unquoted strings
+                    std::getline(ss, name, ',');
+                    std::getline(ss, importantStr, ',');
+                    std::getline(ss, urgentStr);
+                }
+                
+                if (!name.empty() && !importantStr.empty() && !urgentStr.empty()) {
+                    bool isImportant = (importantStr == "1");
+                    bool isUrgent = (urgentStr == "1");
+                    allActivities.emplace_back(name, isImportant, isUrgent);
+                }
+            }
+        }
+        
+        file.close();
+    }
+}
+
+void ActivityManager::clearAllActivities() {
+    allActivities.clear();
+    quadrantI.clear();
+    quadrantII.clear();
+    quadrantIII.clear();
+    quadrantIV.clear();
 }

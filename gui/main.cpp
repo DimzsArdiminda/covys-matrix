@@ -16,11 +16,13 @@ std::string contentToDisplay;
 #define ID_BTN_ADD          1006
 #define ID_BTN_SHOW_RESULT  1007
 #define ID_TEXT_RESULT      1008
+#define ID_BTN_LOAD_DATA    1009
+#define ID_BTN_CLEAR_DATA   1010
 
 // Global variables
 ActivityManager manager;
 HWND hEditActivity, hBtnImportant, hBtnNotImportant, hBtnUrgent, hBtnNotUrgent;
-HWND hBtnAdd, hBtnShowResult, hTextResult;
+HWND hBtnAdd, hBtnShowResult, hTextResult, hBtnLoadData, hBtnClearData;
 bool isImportant = false, isUrgent = false;
 
 // Window Proc
@@ -63,6 +65,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         
         hBtnShowResult = CreateWindowA("BUTTON", "Tampilkan Hasil", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
                                       150, 230, 120, 30, hwnd, (HMENU)ID_BTN_SHOW_RESULT, NULL, NULL);
+
+        // Data management buttons
+        hBtnLoadData = CreateWindowA("BUTTON", "Muat Data", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
+                                    280, 230, 80, 30, hwnd, (HMENU)ID_BTN_LOAD_DATA, NULL, NULL);
+        
+        hBtnClearData = CreateWindowA("BUTTON", "Hapus Semua", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
+                                     370, 230, 90, 30, hwnd, (HMENU)ID_BTN_CLEAR_DATA, NULL, NULL);
 
         // Result display area
         hTextResult = CreateWindowA("EDIT", "", WS_VISIBLE | WS_CHILD | WS_BORDER | WS_VSCROLL | 
@@ -130,6 +139,31 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             SetWindowTextA(hTextResult, result.c_str());
         }
         break;
+        
+        case ID_BTN_LOAD_DATA:
+        {
+            manager.loadFromCSV();
+            MessageBoxA(hwnd, "Data berhasil dimuat dari activities.csv!", "Info", MB_OK | MB_ICONINFORMATION);
+            
+            // Update display if there are activities
+            manager.categorizeActivities();
+            std::string result = manager.getQuadrantAsString() + "\n" + manager.getRecommendations();
+            SetWindowTextA(hTextResult, result.c_str());
+        }
+        break;
+        
+        case ID_BTN_CLEAR_DATA:
+        {
+            int result = MessageBoxA(hwnd, "Yakin ingin menghapus semua data aktivitas?", 
+                                   "Konfirmasi", MB_YESNO | MB_ICONQUESTION);
+            if (result == IDYES) {
+                manager.clearAllActivities();
+                manager.saveToCSV(); // Save empty state
+                SetWindowTextA(hTextResult, "");
+                MessageBoxA(hwnd, "Semua data telah dihapus!", "Info", MB_OK | MB_ICONINFORMATION);
+            }
+        }
+        break;
         }
     }
     break;
@@ -157,6 +191,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
                    LPSTR lpCmdLine, int nCmdShow)
 {
+    // Load saved data at startup
+    manager.loadFromCSV();
+    
     // Setup window
     WNDCLASSEXA wc = { 0 };
     wc.cbSize = sizeof(WNDCLASSEXA);
