@@ -10,6 +10,16 @@ void ActivityManager::addActivity(const std::string& name, bool isImportant, boo
     saveToCSV();
 }
 
+std::vector<Activity> ActivityManager::searchActivities(const std::string& keyword) const {
+    std::vector<Activity> results;
+    for (const auto& act : allActivities) {
+        if (act.name.find(keyword) != std::string::npos) {
+            results.push_back(act);
+        }
+    }
+    return results;
+}
+
 bool ActivityManager::askYesNo(const std::string& question) {
     std::string input;
     std::cout << question << " (ya/tidak): ";
@@ -82,30 +92,75 @@ void ActivityManager::showRecommendations() {
 
 std::string ActivityManager::getQuadrantAsString() const {
     std::stringstream ss;
-    auto writeList = [&ss](const std::vector<Activity>& list, const std::string& title) {
-        ss << title << ":\n";
-        if (list.empty())
-            ss << "  (Tidak ada kegiatan)\n";
-        else {
-            for (const auto& act : list)
-                ss << "  - " << act.name << "\n";
+    
+    ss << "*** COVIE'S MATRIX - KATEGORISASI AKTIVITAS ***\n";
+    ss << "==================================================\n\n";
+    
+    // Header tabel
+    ss << "+-----+--------------------------------+----------+----------+----------+\n";
+    ss << "| No  | Nama Aktivitas                 | Penting  | Mendesak | Kuadran  |\n";
+    ss << "+-----+--------------------------------+----------+----------+----------+\n";
+    
+    int no = 1;
+    
+    // Function untuk format aktivitas dalam tabel
+    auto addToTable = [&ss, &no](const std::vector<Activity>& list, const std::string& quadrant) {
+        for (const auto& activity : list) {
+            std::string name = activity.name;
+            if (name.length() > 30) {
+                name = name.substr(0, 27) + "...";
+            }
+            
+            ss << "| " << std::setw(3) << no++ << " | ";
+            ss << std::left << std::setw(30) << name << " | ";
+            ss << std::setw(8) << (activity.isImportant ? "Ya" : "Tidak") << " | ";
+            ss << std::setw(8) << (activity.isUrgent ? "Ya" : "Tidak") << " | ";
+            ss << std::setw(8) << quadrant << " |\n";
         }
-        ss << "\n";
     };
-
-    writeList(quadrantI, "Kuadran I (Penting & Mendesak)");
-    writeList(quadrantII, "Kuadran II (Penting & Tidak Mendesak)");
-    writeList(quadrantIII, "Kuadran III (Tidak Penting & Mendesak)");
-    writeList(quadrantIV, "Kuadran IV (Tidak Penting & Tidak Mendesak)");
+    
+    // Tambahkan semua aktivitas ke tabel berdasarkan kuadran
+    addToTable(quadrantI, "I");
+    addToTable(quadrantII, "II");
+    addToTable(quadrantIII, "III");
+    addToTable(quadrantIV, "IV");
+    
+    ss << "+-----+--------------------------------+----------+----------+----------+\n\n";
+    
+    // Summary per kuadran
+    ss << "*** RINGKASAN PER KUADRAN ***\n";
+    ss << "===============================\n";
+    ss << "[I]   Penting & Mendesak      : " << quadrantI.size() << " aktivitas\n";
+    ss << "[II]  Penting & Tidak Mendesak: " << quadrantII.size() << " aktivitas\n";
+    ss << "[III] Tidak Penting & Mendesak: " << quadrantIII.size() << " aktivitas\n";
+    ss << "[IV]  Tidak Penting & Tidak M.: " << quadrantIV.size() << " aktivitas\n";
+    ss << "Total Aktivitas               : " << allActivities.size() << " aktivitas\n\n";
 
     return ss.str();
 }
 
 std::string ActivityManager::getRecommendations() const {
-    return "Rekomendasi:\n"
-           "  - Kerjakan Kuadran I segera!\n"
-           "  - Jadwalkan Kuadran II untuk pengembangan jangka panjang\n"
-           "  - Minimalkan Kuadran III dan IV, hindari jika bisa\n";
+    return "*** PANDUAN KUADRAN COVIE'S MATRIX ***\n"
+           "========================================\n"
+           "+----------+-------------------+---------------------------+\n"
+           "| Kuadran  | Kategori          | Tindakan yang Disarankan  |\n"
+           "+----------+-------------------+---------------------------+\n"
+           "| I        | Penting &         | KERJAKAN SEGERA!          |\n"
+           "|          | Mendesak          | Prioritas tertinggi       |\n"
+           "+----------+-------------------+---------------------------+\n"
+           "| II       | Penting &         | JADWALKAN dengan baik     |\n"
+           "|          | Tidak Mendesak    | Fokus untuk jangka panjang|\n"
+           "+----------+-------------------+---------------------------+\n"
+           "| III      | Tidak Penting &   | DELEGASIKAN jika bisa     |\n"
+           "|          | Mendesak          | Atau batasi waktu         |\n"
+           "+----------+-------------------+---------------------------+\n"
+           "| IV       | Tidak Penting &   | ELIMINASI atau MINIMALKAN |\n"
+           "|          | Tidak Mendesak    | Hindari jika memungkinkan |\n"
+           "+----------+-------------------+---------------------------+\n\n"
+           ">> TIPS PRODUKTIVITAS:\n"
+           "   * Fokus utama pada Kuadran II untuk hasil optimal\n"
+           "   * Kurangi waktu di Kuadran III dan IV\n"
+           "   * Selesaikan Kuadran I secepat mungkin\n";
 }
 
 void ActivityManager::saveToCSV(const std::string& filename) const {

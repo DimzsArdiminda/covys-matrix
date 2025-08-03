@@ -6,6 +6,7 @@
 #include <string>
 #include <sstream>
 #include <fstream>
+#include <iomanip>
 
 class Activity {
 public:
@@ -34,11 +35,16 @@ public:
     void showRecommendations();
     std::string getQuadrantAsString() const;
     std::string getRecommendations() const;
+    std::vector<Activity> searchActivities(const std::string& keyword) const;
+
     
-    // CSV functions
+        // CSV operations
     void saveToCSV(const std::string& filename = "activities.csv") const;
     void loadFromCSV(const std::string& filename = "activities.csv");
     void clearAllActivities();
+    
+    // Getter for all activities
+    const std::vector<Activity>& getAllActivities() const { return allActivities; }
 };
 
 #endif
