@@ -237,3 +237,19 @@ void ActivityManager::clearAllActivities() {
     quadrantIII.clear();
     quadrantIV.clear();
 }
+
+void ActivityManager::removeActivity(int index) {
+    if (index >= 0 && index < allActivities.size()) {
+        allActivities.erase(allActivities.begin() + index);
+        saveToCSV(); // Auto-save after removal
+    }
+}
+
+void ActivityManager::editActivity(int index, const std::string& newName, bool newImportant, bool newUrgent) {
+    if (index >= 0 && index < allActivities.size()) {
+        allActivities[index].name = newName;
+        allActivities[index].isImportant = newImportant;
+        allActivities[index].isUrgent = newUrgent;
+        saveToCSV(); // Auto-save after edit
+    }
+}

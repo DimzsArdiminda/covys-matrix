@@ -35,6 +35,8 @@ bool drawCustomTable = false;
 bool drawSearchResults = false;
 std::vector<Activity> currentSearchResults;
 std::string currentSearchKeyword;
+int selectedActivityIndex = -1;
+bool editMode = false;
 
 // View management
 enum class ViewMode { HOME, ADD, VIEW };
@@ -89,9 +91,9 @@ void DrawTableDirect(HDC hdc, HWND hwnd) {
     
     // Draw table header
     const char* lines[] = {
-        "+-----+--------------------------------+----------+----------+----------+",
-        "| No  | Nama Aktivitas                 | Penting  | Mendesak | Kuadran  |",
-        "+-----+--------------------------------+----------+----------+----------+"
+        "+-----+------------------------+----------+----------+----------+------------------+",
+        "| No  | Nama Aktivitas         | Penting  | Mendesak | Kuadran  | Aksi             |",
+        "+-----+------------------------+----------+----------+----------+------------------+"
     };
     
     for (int i = 0; i < 3; i++) {
@@ -124,10 +126,10 @@ void DrawTableDirect(HDC hdc, HWND hwnd) {
     auto drawQuadrantActivities = [&](const std::vector<Activity>& activities, const char* quadrant) {
         for (const auto& activity : activities) {
             std::string name = activity.name;
-            if (name.length() > 30) name = name.substr(0, 27) + "...";
+            if (name.length() > 22) name = name.substr(0, 19) + "...";
             
-            char line[100];
-            sprintf(line, "| %3d | %-30s | %-8s | %-8s | %-8s |",
+            char line[120];
+            sprintf(line, "| %3d | %-22s | %-8s | %-8s | %-8s | [E]dit [D]elete  |",
                     no++, name.c_str(),
                     activity.isImportant ? "Ya" : "Tidak",
                     activity.isUrgent ? "Ya" : "Tidak", quadrant);
@@ -143,7 +145,7 @@ void DrawTableDirect(HDC hdc, HWND hwnd) {
     drawQuadrantActivities(quadIV, "IV");
     
     // Draw table footer
-    TextOutA(hdc, x, y, "+-----+--------------------------------+----------+----------+----------+", 69);
+    TextOutA(hdc, x, y, "+-----+------------------------+----------+----------+----------+------------------+", 81);
     y += lineHeight * 2;
     
     // Draw summary
@@ -276,7 +278,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         homeControls.push_back(hBtnToView);
 
         // Data management buttons di home
-        HWND hBtnLoadData = CreateWindowA("BUTTON", "[<] Muat Data", 
+        HWND hBtnLoadData = CreateWindowA("BUTTON", "[<] Import Data", 
                                          WS_CHILD | BS_PUSHBUTTON,
                                          180, 280, 115, 35, hwnd, (HMENU)ID_BTN_LOAD_DATA, NULL, NULL);
         homeControls.push_back(hBtnLoadData);
@@ -455,7 +457,18 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             GetWindowTextA(hEditActivity, activityName, sizeof(activityName));
             
             if (strlen(activityName) > 0) {
-                manager.addActivity(std::string(activityName), isImportant, isUrgent);
+                if (editMode && selectedActivityIndex >= 0) {
+                    // Edit existing activity
+                    manager.editActivity(selectedActivityIndex, std::string(activityName), isImportant, isUrgent);
+                    MessageBoxA(hwnd, "Aktivitas berhasil diperbarui!", "Sukses", MB_OK | MB_ICONINFORMATION);
+                    editMode = false;
+                    selectedActivityIndex = -1;
+                } else {
+                    // Add new activity
+                    manager.addActivity(std::string(activityName), isImportant, isUrgent);
+                    MessageBoxA(hwnd, "Aktivitas berhasil ditambahkan dan disimpan!", "Sukses", MB_OK | MB_ICONINFORMATION);
+                }
+                
                 SetWindowTextA(hEditActivity, ""); // Clear input
                 
                 // Reset selections
@@ -465,8 +478,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 SetWindowTextA(hBtnNotImportant, "[-] Tidak Penting");
                 SetWindowTextA(hBtnUrgent, "[!!] Mendesak");
                 SetWindowTextA(hBtnNotUrgent, "[~] Tidak Mendesak");
-                
-                MessageBoxA(hwnd, "Aktivitas berhasil ditambahkan dan disimpan!", "Sukses", MB_OK | MB_ICONINFORMATION);
                 
                 // Auto-switch to view and update display
                 manager.categorizeActivities();
@@ -572,6 +583,101 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         }
         
         EndPaint(hwnd, &ps);
+    }
+    break;
+    
+    case WM_LBUTTONDOWN:
+    {
+        if (currentView == ViewMode::VIEW && (drawCustomTable || drawSearchResults)) {
+            int x = LOWORD(lParam);
+            int y = HIWORD(lParam);
+            
+            // Debug: Show click coordinates
+            char debugMsg[100];
+            sprintf(debugMsg, "Click at: x=%d, y=%d", x, y);
+            // Uncomment line below for debugging coordinates
+            // MessageBoxA(hwnd, debugMsg, "Debug Click", MB_OK);
+            
+            // Check if click is in table area (starting from y=160, each row is 20px high)
+            // Skip header row, so data starts at y=180
+            if (x >= 20 && x <= 600 && y >= 180) {
+                int rowIndex = (y - 180) / 20; // Adjusted for header
+                int totalActivities = drawSearchResults ? currentSearchResults.size() : manager.getAllActivities().size();
+                
+                if (rowIndex >= 0 && rowIndex < totalActivities) {
+                    // Action column starts at position 71 characters * 8 pixels/char = ~568 pixels
+                    // But let's use a broader range starting from column position ~65 characters
+                    // Column positions: x=20 + (character_position * 8)
+                    // Action column starts around character 65, so x = 20 + 65*8 = 540
+                    if (x >= 500 && x <= 600) {
+                        if (x >= 500 && x <= 550) {
+                            // Edit button area - first part of action column
+                            selectedActivityIndex = rowIndex;
+                            editMode = true;
+                            
+                            const Activity& activity = drawSearchResults ? 
+                                currentSearchResults[rowIndex] : 
+                                manager.getAllActivities()[rowIndex];
+                            
+                            // Set form data for editing
+                            SetWindowTextA(hEditActivity, activity.name.c_str());
+                            isImportant = activity.isImportant;
+                            isUrgent = activity.isUrgent;
+                            
+                            // Update button states
+                            SetWindowTextA(hBtnImportant, isImportant ? "[!] Penting [DIPILIH]" : "[!] Penting");
+                            SetWindowTextA(hBtnNotImportant, !isImportant ? "[-] Tidak Penting [DIPILIH]" : "[-] Tidak Penting");
+                            SetWindowTextA(hBtnUrgent, isUrgent ? "[!!] Mendesak [DIPILIH]" : "[!!] Mendesak");
+                            SetWindowTextA(hBtnNotUrgent, !isUrgent ? "[~] Tidak Mendesak [DIPILIH]" : "[~] Tidak Mendesak");
+                            
+                            // Switch to ADD view for editing
+                            MoveWindow(hTextResult, 40, 140, 480, 300, TRUE);
+                            SwitchView(ViewMode::ADD);
+                            InvalidateRect(hwnd, NULL, TRUE);
+                            
+                        } else if (x >= 550 && x <= 600) {
+                            // Delete button area - second part of action column
+                            char confirmMsg[200];
+                            const Activity& activity = drawSearchResults ? 
+                                currentSearchResults[rowIndex] : 
+                                manager.getAllActivities()[rowIndex];
+                            
+                            sprintf(confirmMsg, "Yakin ingin menghapus aktivitas:\n\n\"%s\"?", activity.name.c_str());
+                            int result = MessageBoxA(hwnd, confirmMsg, "Konfirmasi Hapus", MB_YESNO | MB_ICONQUESTION);
+                            
+                            if (result == IDYES) {
+                                // Find the actual index in allActivities if we're in search mode
+                                int actualIndex = rowIndex;
+                                if (drawSearchResults) {
+                                    const auto& allActivities = manager.getAllActivities();
+                                    for (int i = 0; i < allActivities.size(); i++) {
+                                        if (allActivities[i].name == activity.name && 
+                                            allActivities[i].isImportant == activity.isImportant && 
+                                            allActivities[i].isUrgent == activity.isUrgent) {
+                                            actualIndex = i;
+                                            break;
+                                        }
+                                    }
+                                }
+                                
+                                manager.removeActivity(actualIndex);
+                                
+                                // Refresh display
+                                if (drawSearchResults) {
+                                    // Refresh search results
+                                    currentSearchResults = manager.searchActivities(currentSearchKeyword);
+                                } else {
+                                    manager.categorizeActivities();
+                                }
+                                InvalidateRect(hwnd, NULL, TRUE);
+                                
+                                MessageBoxA(hwnd, "Aktivitas berhasil dihapus!", "Info", MB_OK | MB_ICONINFORMATION);
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
     break;
     

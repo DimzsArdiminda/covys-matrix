@@ -45,6 +45,10 @@ public:
     
     // Getter for all activities
     const std::vector<Activity>& getAllActivities() const { return allActivities; }
+    
+    // Edit and delete operations
+    void removeActivity(int index);
+    void editActivity(int index, const std::string& newName, bool newImportant, bool newUrgent);
 };
 
 #endif
