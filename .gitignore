@@ -3,3 +3,5 @@ note
 /test/HelloWorld.cpp
 /test/HelloWorld.exe
 /gui/lib/*
+/gui/]
+/gui/*.csv
