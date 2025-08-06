@@ -145,8 +145,8 @@ void DrawTableDirect(HDC hdc, HWND hwnd) {
             
             // Draw Edit button with background and border
             RECT editRect;
-            editRect.left = actionColumnStart + 5;
-            editRect.top = y + 80;
+            editRect.left = actionColumnStart + 2;
+            editRect.top = y + 2;
             editRect.right = editRect.left + buttonWidth;
             editRect.bottom = editRect.top + buttonHeight;
             
@@ -162,14 +162,14 @@ void DrawTableDirect(HDC hdc, HWND hwnd) {
             // Rectangle(hdc, editRect.left, editRect.top, editRect.right, editRect.bottom);
             
             // Draw Edit button text
-            // SetBkMode(hdc, TRANSPARENT);
-            // SetTextColor(hdc, RGB(0, 100, 0));
-            // TextOutA(hdc, editRect.left + 8, editRect.top + 2, "Edit", 4);
+            SetBkMode(hdc, TRANSPARENT);
+            SetTextColor(hdc, RGB(0, 100, 0));
+            TextOutA(hdc, editRect.left + 1, editRect.top + 2, "Edit", 4);
             
             // Draw Delete button with background and border
             RECT deleteRect;
-            deleteRect.left = actionColumnStart + buttonWidth + buttonSpacing + 10;
-            deleteRect.top = y + 80;
+            deleteRect.left = actionColumnStart + buttonWidth + buttonSpacing + 2;
+            deleteRect.top = y + 2;
             deleteRect.right = deleteRect.left + buttonWidth;
             deleteRect.bottom = deleteRect.top + buttonHeight;
             
@@ -184,8 +184,8 @@ void DrawTableDirect(HDC hdc, HWND hwnd) {
             // Rectangle(hdc, deleteRect.left, deleteRect.top, deleteRect.right, deleteRect.bottom);
             
             // Draw Delete button text
-            // SetTextColor(hdc, RGB(150, 0, 0));
-            // TextOutA(hdc, deleteRect.left + 5, deleteRect.top + 2, "Delete", 6);
+            SetTextColor(hdc, RGB(150, 0, 0));
+            TextOutA(hdc, deleteRect.left , deleteRect.top + 2, "Delete", 6);
             
             // Complete the table row with closing border
             SetTextColor(hdc, RGB(0, 0, 0));
@@ -776,7 +776,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             // Check if click is in table area (starting from y=160, each row is 20px high)
             // Skip header row, so data starts at y=180
             if (x >= 20 && x <= 700 && y >= 180) {
-                int rowIndex = (y - 180) / 20; // Adjusted for header
+                int rowIndex = (y - 190) / 20; // Adjusted for header
                 int totalActivities = drawSearchResults ? currentSearchResults.size() : manager.getAllActivities().size();
                 
                 if (rowIndex >= 0 && rowIndex < totalActivities) {
@@ -853,99 +853,100 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         }
     }
     break;
-    
-    case WM_MOUSEMOVE:
-    {
-        if (currentView == ViewMode::VIEW && (drawCustomTable || drawSearchResults)) {
-            int x = LOWORD(lParam);
-            int y = HIWORD(lParam);
+    // HOVER
+    // case WM_MOUSEMOVE:
+    // {
+    //     if (currentView == ViewMode::VIEW && (drawCustomTable || drawSearchResults)) {
+    //         int x = LOWORD(lParam);
+    //         int y = HIWORD(lParam);
             
-            int tableX = 20; // Same as x in DrawTableDirect
-            int actionColumnStart = tableX + 480; // Same as in drawing function
-            int editButtonStart = actionColumnStart + 0;
-            int editButtonEnd = editButtonStart + 35;
-            int deleteButtonStart = actionColumnStart + 35 + 5 + 10;
-            int deleteButtonEnd = deleteButtonStart + 35;
+    //         int tableX = 20; // Same as x in DrawTableDirect
+    //         int actionColumnStart = tableX + 480; // Same as in drawing function
+    //         int editButtonStart = actionColumnStart + 0;
+    //         int editButtonEnd = editButtonStart + 35;
+    //         int deleteButtonStart = actionColumnStart + 35 + 5 + 10;
+    //         int deleteButtonEnd = deleteButtonStart + 35;
             
-            if ((x >= editButtonStart && x <= editButtonEnd) || (x >= deleteButtonStart && x <= deleteButtonEnd)) {
-                if (y >= 180) {
-                    int rowIndex = (y - 180) / 20;
-                    int totalActivities = drawSearchResults ? currentSearchResults.size() : manager.getAllActivities().size();
+    //         if ((x >= editButtonStart && x <= editButtonEnd) || (x >= deleteButtonStart && x <= deleteButtonEnd)) {
+    //             if (y >= 180) {
+    //                 int rowIndex = (y - 180) / 20;
+    //                 int totalActivities = drawSearchResults ? currentSearchResults.size() : manager.getAllActivities().size();
                     
-                    if (rowIndex >= 0 && rowIndex < totalActivities) {
-                        SetCursor(LoadCursor(NULL, IDC_HAND));
+    //                 if (rowIndex >= 0 && rowIndex < totalActivities) {
+    //                     SetCursor(LoadCursor(NULL, IDC_HAND));
                         
-                        // Highlight the button area being hovered
-                        HDC hdc = GetDC(hwnd);
-                        RECT buttonRect;
+    //                     // Highlight the button area being hovered
+    //                     HDC hdc = GetDC(hwnd);
+    //                     RECT buttonRect;
                         
-                        if (x >= editButtonStart && x <= editButtonEnd) {
-                            // Highlight Edit button with brighter background
-                            buttonRect.left = editButtonStart;
-                            buttonRect.top = 180 + (rowIndex * 25) + 17;
-                            buttonRect.right = editButtonEnd;
-                            buttonRect.bottom = buttonRect.top + 16;
+    //                     if (x >= editButtonStart && x <= editButtonEnd) {
+    //                         // Highlight Edit button with brighter background
+    //                         buttonRect.left = editButtonStart;
+    //                         buttonRect.top = 180 + (rowIndex * 25) + 17;
+    //                         buttonRect.right = editButtonEnd;
+    //                         buttonRect.bottom = buttonRect.top + 16;
                             
-                            HBRUSH hoverBrush = CreateSolidBrush(RGB(180, 255, 180)); // Brighter green
-                            FillRect(hdc, &buttonRect, hoverBrush);
-                            DeleteObject(hoverBrush);
+    //                         // HBRUSH hoverBrush = CreateSolidBrush(RGB(180, 255, 180)); // Brighter green
+    //                         // FillRect(hdc, &buttonRect, hoverBrush);
+    //                         // DeleteObject(hoverBrush);
                             
-                            // Draw border
-                            HPEN hoverPen = CreatePen(PS_SOLID, 2, RGB(0, 120, 0)); // Thicker border
-                            HPEN oldPen = (HPEN)SelectObject(hdc, hoverPen);
-                            HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, GetStockObject(NULL_BRUSH));
-                            Rectangle(hdc, buttonRect.left, buttonRect.top, buttonRect.right, buttonRect.bottom);
-                            SelectObject(hdc, oldPen);
-                            SelectObject(hdc, oldBrush);
-                            DeleteObject(hoverPen);
+    //                         // Draw border
+    //                         // HPEN hoverPen = CreatePen(PS_SOLID, 2, RGB(0, 120, 0)); // Thicker border
+    //                         // HPEN oldPen = (HPEN)SelectObject(hdc, hoverPen);
+    //                         // HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, GetStockObject(NULL_BRUSH));
+    //                         // Rectangle(hdc, buttonRect.left, buttonRect.top, buttonRect.right, buttonRect.bottom);
+    //                         // SelectObject(hdc, oldPen);
+    //                         // SelectObject(hdc, oldBrush);
+    //                         // DeleteObject(hoverPen);
                             
-                            // Redraw the text
-                            SetBkMode(hdc, TRANSPARENT);
-                            SetTextColor(hdc, RGB(0, 80, 0));
-                            TextOutA(hdc, buttonRect.left + 8, buttonRect.top + 2, "Edit", 4);
+    //                         // Redraw the text
+    //                         // SetBkMode(hdc, TRANSPARENT);
+    //                         // SetTextColor(hdc, RGB(0, 80, 0));
+    //                         TextOutA(hdc, buttonRect.left + 8, buttonRect.top + 2, "", 4);
                             
-                        } else if (x >= deleteButtonStart && x <= deleteButtonEnd) {
-                            // Highlight Delete button with brighter background
-                            buttonRect.left = deleteButtonStart;
-                            buttonRect.top = 180 + (rowIndex * 25) + 17;
-                            buttonRect.right = deleteButtonEnd;
-                            buttonRect.bottom = buttonRect.top + 16;
-                            buttonRect.right = deleteButtonEnd;
-                            buttonRect.bottom = buttonRect.top + 16;
+    //                     } else if (x >= deleteButtonStart && x <= deleteButtonEnd) {
+    //                         // Highlight Delete button with brighter background
+    //                         buttonRect.left = deleteButtonStart;
+    //                         buttonRect.top = 180 + (rowIndex * 25) + 17;
+    //                         buttonRect.right = deleteButtonEnd;
+    //                         buttonRect.bottom = buttonRect.top + 16;
+    //                         buttonRect.right = deleteButtonEnd;
+    //                         buttonRect.bottom = buttonRect.top + 16;
                             
-                            HBRUSH hoverBrush = CreateSolidBrush(RGB(255, 180, 180)); // Brighter red
-                            FillRect(hdc, &buttonRect, hoverBrush);
-                            DeleteObject(hoverBrush);
+    //                         // HBRUSH hoverBrush = CreateSolidBrush(RGB(255, 180, 180)); // Brighter red
+    //                         // FillRect(hdc, &buttonRect, hoverBrush);
+    //                         // DeleteObject(hoverBrush);
                             
-                            // Draw border
-                            HPEN hoverPen = CreatePen(PS_SOLID, 2, RGB(180, 0, 0)); // Thicker border
-                            HPEN oldPen = (HPEN)SelectObject(hdc, hoverPen);
-                            HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, GetStockObject(NULL_BRUSH));
-                            Rectangle(hdc, buttonRect.left, buttonRect.top, buttonRect.right, buttonRect.bottom);
-                            SelectObject(hdc, oldPen);
-                            SelectObject(hdc, oldBrush);
-                            DeleteObject(hoverPen);
+    //                         // // Draw border
+    //                         // HPEN hoverPen = CreatePen(PS_SOLID, 2, RGB(180, 0, 0)); // Thicker border
+    //                         // HPEN oldPen = (HPEN)SelectObject(hdc, hoverPen);
+    //                         // HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, GetStockObject(NULL_BRUSH));
+    //                         // Rectangle(hdc, buttonRect.left, buttonRect.top, buttonRect.right, buttonRect.bottom);
+    //                         // SelectObject(hdc, oldPen);
+    //                         // SelectObject(hdc, oldBrush);
+    //                         // DeleteObject(hoverPen);
                             
-                            // Redraw the text
-                            SetBkMode(hdc, TRANSPARENT);
-                            SetTextColor(hdc, RGB(120, 0, 0));
-                            TextOutA(hdc, buttonRect.left + 5, buttonRect.top + 2, "Delete", 6);
-                        }
+    //                         // // Redraw the text
+    //                         // SetBkMode(hdc, TRANSPARENT);
+    //                         // SetTextColor(hdc, RGB(120, 0, 0));
+    //                         TextOutA(hdc, buttonRect.left + 5, buttonRect.top + 2, "", 6);
+    //                     }
                         
-                        ReleaseDC(hwnd, hdc);
-                    } else {
-                        SetCursor(LoadCursor(NULL, IDC_ARROW));
-                    }
-                } else {
-                    SetCursor(LoadCursor(NULL, IDC_ARROW));
-                }
-            } else {
-                SetCursor(LoadCursor(NULL, IDC_ARROW));
-            }
-        }
-    }
-    break;
-    
+    //                     ReleaseDC(hwnd, hdc);
+    //                 } else {
+    //                     SetCursor(LoadCursor(NULL, IDC_ARROW));
+    //                 }
+    //             } else {
+    //                 SetCursor(LoadCursor(NULL, IDC_ARROW));
+    //             }
+    //         } else {
+    //             SetCursor(LoadCursor(NULL, IDC_ARROW));
+    //         }
+    //     }
+    // }
+    // break;
+    // END OF HOVER
+
     case WM_ERASEBKGND:
     {
         // Handle background erasing to ensure clean transitions
