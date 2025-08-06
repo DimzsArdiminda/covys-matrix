@@ -36,6 +36,7 @@ bool drawCustomTable = false;
 bool drawSearchResults = false;
 std::vector<Activity> currentSearchResults;
 std::string currentSearchKeyword;
+std::vector<Activity> displayOrderActivities; // Activities in display order for consistent indexing
 int selectedActivityIndex = -1;
 bool editMode = false;
 
@@ -106,6 +107,9 @@ void DrawTableDirect(HDC hdc, HWND hwnd) {
     // Get all activities directly
     const auto& allActivities = manager.getAllActivities();
     
+    // Clear display order and rebuild it to match what we're showing
+    displayOrderActivities.clear();
+    
     // Categorize activities on the fly
     std::vector<Activity> quadI, quadII, quadIII, quadIV;
     
@@ -120,6 +124,12 @@ void DrawTableDirect(HDC hdc, HWND hwnd) {
             quadIV.push_back(activity);
         }
     }
+    
+    // Build display order: I, II, III, IV (same as drawing order)
+    for (const auto& activity : quadI) displayOrderActivities.push_back(activity);
+    for (const auto& activity : quadII) displayOrderActivities.push_back(activity);
+    for (const auto& activity : quadIII) displayOrderActivities.push_back(activity);
+    for (const auto& activity : quadIV) displayOrderActivities.push_back(activity);
     
     // Draw activities by quadrant
     int no = 1;
@@ -773,11 +783,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             // Uncomment line below for debugging coordinates
             // MessageBoxA(hwnd, debugMsg, "Debug Click", MB_OK);
             
-            // Check if click is in table area (starting from y=160, each row is 20px high)
-            // Skip header row, so data starts at y=180
-            if (x >= 20 && x <= 700 && y >= 180) {
-                int rowIndex = (y - 190) / 20; // Adjusted for header
-                int totalActivities = drawSearchResults ? currentSearchResults.size() : manager.getAllActivities().size();
+            // Check if click is in table area 
+            // Data starts at y=200 (title=100, +40 for title space, +60 for 3 header lines)
+            if (x >= 20 && x <= 700 && y >= 200) {
+                int rowIndex = (y - 200) / 20; // Correct calculation based on actual data start position
+                int totalActivities = drawSearchResults ? currentSearchResults.size() : displayOrderActivities.size();
                 
                 if (rowIndex >= 0 && rowIndex < totalActivities) {
                     // Use same coordinates as in drawing function
@@ -789,13 +799,25 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     int deleteButtonEnd = deleteButtonStart + 35;
                     
                     if (x >= editButtonStart && x <= editButtonEnd) {
-                        // Edit button clicked - immediate response
-                        selectedActivityIndex = rowIndex;
-                        editMode = true;
-                        
+                        // Edit button clicked - find the real index in original data
                         const Activity& activity = drawSearchResults ? 
                             currentSearchResults[rowIndex] : 
-                            manager.getAllActivities()[rowIndex];
+                            displayOrderActivities[rowIndex];
+                        
+                        // Find the original index in allActivities
+                        const auto& allActivities = manager.getAllActivities();
+                        selectedActivityIndex = -1;
+                        for (size_t i = 0; i < allActivities.size(); i++) {
+                            const auto& act = allActivities[i];
+                            if (act.name == activity.name && 
+                                act.isImportant == activity.isImportant && 
+                                act.isUrgent == activity.isUrgent) {
+                                selectedActivityIndex = i;
+                                break;
+                            }
+                        }
+                        
+                        editMode = true;
                         
                         // Set form data for editing
                         SetWindowTextA(hEditActivity, activity.name.c_str());
@@ -817,31 +839,31 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                         // Delete button clicked - optimized processing
                         const Activity& activity = drawSearchResults ? 
                             currentSearchResults[rowIndex] : 
-                            manager.getAllActivities()[rowIndex];
+                            displayOrderActivities[rowIndex];
                         
                         char confirmMsg[150];
                         sprintf(confirmMsg, "Hapus aktivitas:\n\"%s\"?", activity.name.c_str());
                         int result = MessageBoxA(hwnd, confirmMsg, "Konfirmasi Delete", MB_YESNO | MB_ICONQUESTION);
                         
                         if (result == IDYES) {
-                            // Immediate processing without additional loops
-                            if (drawSearchResults) {
-                                // Find and remove from main list
-                                const auto& allActivities = manager.getAllActivities();
-                                for (size_t i = 0; i < allActivities.size(); i++) {
-                                    const auto& act = allActivities[i];
-                                    if (act.name == activity.name && 
-                                        act.isImportant == activity.isImportant && 
-                                        act.isUrgent == activity.isUrgent) {
-                                        manager.removeActivity(i);
+                            // Find the original index in allActivities for the selected activity
+                            const auto& allActivities = manager.getAllActivities();
+                            for (size_t i = 0; i < allActivities.size(); i++) {
+                                const auto& act = allActivities[i];
+                                if (act.name == activity.name && 
+                                    act.isImportant == activity.isImportant && 
+                                    act.isUrgent == activity.isUrgent) {
+                                    manager.removeActivity(i);
+                                    
+                                    if (drawSearchResults) {
                                         // Update search results immediately
                                         currentSearchResults = manager.searchActivities(currentSearchKeyword);
-                                        break;
+                                    } else {
+                                        // Recategorize activities for display
+                                        manager.categorizeActivities();
                                     }
+                                    break;
                                 }
-                            } else {
-                                manager.removeActivity(rowIndex);
-                                manager.categorizeActivities();
                             }
                             
                             // Single efficient repaint
@@ -868,9 +890,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     //         int deleteButtonEnd = deleteButtonStart + 35;
             
     //         if ((x >= editButtonStart && x <= editButtonEnd) || (x >= deleteButtonStart && x <= deleteButtonEnd)) {
-    //             if (y >= 180) {
-    //                 int rowIndex = (y - 180) / 20;
-    //                 int totalActivities = drawSearchResults ? currentSearchResults.size() : manager.getAllActivities().size();
+    //             if (y >= 200) { // Same as in WM_LBUTTONDOWN
+    //                 int rowIndex = (y - 200) / 20; // Same calculation as in WM_LBUTTONDOWN
+    //                 int totalActivities = drawSearchResults ? currentSearchResults.size() : displayOrderActivities.size();
                     
     //                 if (rowIndex >= 0 && rowIndex < totalActivities) {
     //                     SetCursor(LoadCursor(NULL, IDC_HAND));
@@ -882,7 +904,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     //                     if (x >= editButtonStart && x <= editButtonEnd) {
     //                         // Highlight Edit button with brighter background
     //                         buttonRect.left = editButtonStart;
-    //                         buttonRect.top = 180 + (rowIndex * 25) + 17;
+    //                         buttonRect.top = 200 + (rowIndex * 20) + 2; // Correct calculation
     //                         buttonRect.right = editButtonEnd;
     //                         buttonRect.bottom = buttonRect.top + 16;
                             
@@ -907,9 +929,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     //                     } else if (x >= deleteButtonStart && x <= deleteButtonEnd) {
     //                         // Highlight Delete button with brighter background
     //                         buttonRect.left = deleteButtonStart;
-    //                         buttonRect.top = 180 + (rowIndex * 25) + 17;
-    //                         buttonRect.right = deleteButtonEnd;
-    //                         buttonRect.bottom = buttonRect.top + 16;
+    //                         buttonRect.top = 200 + (rowIndex * 20) + 2; // Correct calculation
     //                         buttonRect.right = deleteButtonEnd;
     //                         buttonRect.bottom = buttonRect.top + 16;
                             
