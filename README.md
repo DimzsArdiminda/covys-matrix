@@ -15,7 +15,6 @@ This project is built using the **C++ programming language** and implements the 
 
 - 🧠 **Time Management by Covey’s Matrix**
 - 🖥️ **Fullscreen mode**
-- 🌙 **Light/Dark mode toggle** (only available in GUI version)
 - 🧮 **CLI version (console-based)** for simplicity and learning purposes
 
 ---

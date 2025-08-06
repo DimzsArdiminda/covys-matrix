@@ -24,6 +24,7 @@ std::string contentToDisplay;
 #define ID_BTN_TO_ADD       2001
 #define ID_BTN_TO_VIEW      2002
 #define ID_EDIT_SEARCH      3001
+#define ID_BTN_EXPLANATION  3003
 
 // Global variables
 ActivityManager manager;
@@ -80,6 +81,7 @@ void DrawTableDirect(HDC hdc, HWND hwnd) {
     
     int x = 20;
     int y = 100;
+    int hov = 20;
     int lineHeight = 20;
     
     // Draw title
@@ -129,11 +131,72 @@ void DrawTableDirect(HDC hdc, HWND hwnd) {
             if (name.length() > 22) name = name.substr(0, 19) + "...";
             
             char line[120];
-            sprintf(line, "| %3d | %-22s | %-8s | %-8s | %-8s | [E]dit [D]elete  |",
+            sprintf(line, "| %3d | %-22s | %-8s | %-8s | %-8s |",
                     no++, name.c_str(),
                     activity.isImportant ? "Ya" : "Tidak",
                     activity.isUrgent ? "Ya" : "Tidak", quadrant);
             TextOutA(hdc, x, y, line, strlen(line));
+            
+            // Calculate button positions within the action column
+            int actionColumnStart = x + 480; // Start of action column
+            int buttonWidth = 50;
+            int buttonHeight = 16;
+            int buttonSpacing = 5;
+            
+            // Draw Edit button with background and border
+            RECT editRect;
+            editRect.left = actionColumnStart + 5;
+            editRect.top = y + 80;
+            editRect.right = editRect.left + buttonWidth;
+            editRect.bottom = editRect.top + buttonHeight;
+            
+            // Fill button background
+            // HBRUSH editBrush = CreateSolidBrush(RGB(220, 255, 220)); // Light green background
+            // FillRect(hdc, &editRect, editBrush);
+            // DeleteObject(editBrush);
+            
+            // Draw button border
+            // HPEN editPen = CreatePen(PS_SOLID, 1, RGB(0, 150, 0)); // Green border
+            // HPEN oldPen = (HPEN)SelectObject(hdc, editPen);
+            // HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, GetStockObject(NULL_BRUSH));
+            // Rectangle(hdc, editRect.left, editRect.top, editRect.right, editRect.bottom);
+            
+            // Draw Edit button text
+            // SetBkMode(hdc, TRANSPARENT);
+            // SetTextColor(hdc, RGB(0, 100, 0));
+            // TextOutA(hdc, editRect.left + 8, editRect.top + 2, "Edit", 4);
+            
+            // Draw Delete button with background and border
+            RECT deleteRect;
+            deleteRect.left = actionColumnStart + buttonWidth + buttonSpacing + 10;
+            deleteRect.top = y + 80;
+            deleteRect.right = deleteRect.left + buttonWidth;
+            deleteRect.bottom = deleteRect.top + buttonHeight;
+            
+            // Fill button background
+            // HBRUSH deleteBrush = CreateSolidBrush(RGB(255, 220, 220)); // Light red background
+            // FillRect(hdc, &deleteRect, deleteBrush);
+            // DeleteObject(deleteBrush);
+            
+            // Draw button border
+            // HPEN deletePen = CreatePen(PS_SOLID, 1, RGB(200, 0, 0)); // Red border
+            // SelectObject(hdc, deletePen);
+            // Rectangle(hdc, deleteRect.left, deleteRect.top, deleteRect.right, deleteRect.bottom);
+            
+            // Draw Delete button text
+            // SetTextColor(hdc, RGB(150, 0, 0));
+            // TextOutA(hdc, deleteRect.left + 5, deleteRect.top + 2, "Delete", 6);
+            
+            // Complete the table row with closing border
+            SetTextColor(hdc, RGB(0, 0, 0));
+            TextOutA(hdc, x + 575, y, " |", 2);
+            
+            // Restore original pen and brush
+            // SelectObject(hdc, oldPen);
+            // SelectObject(hdc, oldBrush);
+            // DeleteObject(editPen);
+            // DeleteObject(deletePen);
+            
             y += lineHeight;
         }
     };
@@ -377,6 +440,12 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                                        430, 95, 90, 25, hwnd, (HMENU)3002, NULL, NULL);
         viewControls.push_back(hBtnSearch);
 
+        // Explanation button - positioned at bottom right corner
+        HWND hBtnExplanation = CreateWindowA("BUTTON", "[?] Penjelasan Kuadran", 
+                                            WS_CHILD | BS_PUSHBUTTON,
+                                            450, 500, 170, 35, hwnd, (HMENU)ID_BTN_EXPLANATION, NULL, NULL);
+        viewControls.push_back(hBtnExplanation);
+
         // Results area - posisikan di luar area visible secara default
         hTextResult = CreateWindowA("EDIT", "", 
                                    WS_CHILD | WS_BORDER | WS_VSCROLL | ES_MULTILINE | ES_READONLY,
@@ -388,7 +457,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         ShowControls(viewControls, false);
         ShowControls(homeControls, true);
         
-        // Auto-load data if available
+        // Load data once at startup - prevent duplicates
         manager.loadFromCSV();
     }
     break;
@@ -520,6 +589,112 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         }
         break;
         
+        case ID_BTN_EXPLANATION: // Tombol Penjelasan Kuadran
+        {
+            // Get current activities and categorize them
+            manager.categorizeActivities();
+            const auto& allActivities = manager.getAllActivities();
+            
+            // Categorize activities on the fly to get real data
+            std::vector<Activity> quadI, quadII, quadIII, quadIV;
+            
+            for (const auto& activity : allActivities) {
+                if (activity.isImportant && activity.isUrgent) {
+                    quadI.push_back(activity);
+                } else if (activity.isImportant && !activity.isUrgent) {
+                    quadII.push_back(activity);
+                } else if (!activity.isImportant && activity.isUrgent) {
+                    quadIII.push_back(activity);
+                } else {
+                    quadIV.push_back(activity);
+                }
+            }
+            
+            // Build explanation with real data
+            std::stringstream explanation;
+            explanation << "*** PENJELASAN KUADRAN EISENHOWER MATRIX ***\n\n";
+            
+            // KUADRAN I
+            explanation << "KUADRAN I - PENTING & MENDESAK (" << quadI.size() << " aktivitas)\n";
+            // explanation << "- Krisis dan emergency\n";
+            // explanation << "- Deadline yang sudah dekat\n";
+            // explanation << "- Masalah mendesak\n";
+            explanation << "-> TINDAKAN: Kerjakan SEGERA!\n";
+            if (!quadI.empty()) {
+                explanation << ">> AKTIVITAS ANDA:\n";
+                for (size_t i = 0; i < quadI.size(); i++) {
+                    explanation << "   - " << quadI[i].name << "\n";
+                }
+            } else {
+                explanation << "> Tidak ada aktivitas mendesak saat ini!\n";
+            }
+            explanation << "\n";
+            
+            // KUADRAN II
+            explanation << "KUADRAN II - PENTING & TIDAK MENDESAK (" << quadII.size() << " aktivitas)\n";
+            // explanation << "- Perencanaan dan strategi\n";
+            // explanation << "- Pengembangan diri\n";
+            // explanation << "- Pencegahan masalah\n";
+            explanation << "-> TINDAKAN: JADWALKAN dengan baik\n";
+            if (!quadII.empty()) {
+                explanation << ">> AKTIVITAS ANDA:\n";
+                for (size_t i = 0; i < quadII.size(); i++) {
+                    explanation << "   - " << quadII[i].name << "\n";
+                }
+            } else {
+                explanation << "!! Tambahkan aktivitas perencanaan di sini !!\n";
+            }
+            explanation << "\n";
+            
+            // KUADRAN III
+            explanation << "KUADRAN III - TIDAK PENTING & MENDESAK (" << quadIII.size() << " aktivitas)\n";
+            // explanation << "- Interupsi dan gangguan\n";
+            // explanation << "- Meeting tidak penting\n";
+            // explanation << "- Permintaan orang lain\n";
+            explanation << "-> TINDAKAN: DELEGASIKAN atau TOLAK\n";
+            if (!quadIII.empty()) {
+                explanation << ">> AKTIVITAS ANDA:\n";
+                for (size_t i = 0; i < quadIII.size(); i++) {
+                    explanation << "   - " << quadIII[i].name << "\n";
+                }
+            } else {
+                explanation << "> Bagus! Hindari aktivitas yang mengganggu!\n";
+            }
+            explanation << "\n";
+            
+            // KUADRAN IV
+            explanation << "KUADRAN IV - TIDAK PENTING & TIDAK MENDESAK (" << quadIV.size() << " aktivitas)\n";
+            // explanation << "- Aktivitas mengisi waktu\n";
+            // explanation << "- Social media berlebihan\n";
+            // explanation << "- Hiburan yang tidak produktif\n";
+            explanation << "-> TINDAKAN: ELIMINASI atau MINIMALKAN\n";
+            if (!quadIV.empty()) {
+                explanation << ">> AKTIVITAS ANDA:\n";
+                for (size_t i = 0; i < quadIV.size(); i++) {
+                    explanation << "   - " << quadIV[i].name << "\n";
+                }
+            } else {
+                explanation << "> Sempurna! Tidak ada waktu terbuang!\n";
+            }
+            explanation << "\n";
+            
+            // Tips and summary
+            explanation << "!! TIPS SUKSES:\n";
+            explanation << "- Fokus 60-70% waktu di Kuadran II\n";
+            explanation << "- Minimalkan Kuadran III dan IV\n";
+            explanation << "- Selesaikan Kuadran I secepat mungkin\n";
+            explanation << "- Kuadran II adalah kunci produktivitas!\n\n";
+            
+            explanation << "!! RINGKASAN ANDA:\n";
+            explanation << "Total: " << allActivities.size() << " aktivitas\n";
+            explanation << "I: " << quadI.size() << " | II: " << quadII.size() 
+                       << " | III: " << quadIII.size() << " | IV: " << quadIV.size();
+            
+            MessageBoxA(hwnd, explanation.str().c_str(), "Penjelasan & Data Kuadran Anda", 
+                       MB_OK | MB_ICONINFORMATION);
+        }
+        break;
+        
         case ID_BTN_LOAD_DATA:
         {
             manager.loadFromCSV();
@@ -600,82 +775,172 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             
             // Check if click is in table area (starting from y=160, each row is 20px high)
             // Skip header row, so data starts at y=180
-            if (x >= 20 && x <= 600 && y >= 180) {
+            if (x >= 20 && x <= 700 && y >= 180) {
                 int rowIndex = (y - 180) / 20; // Adjusted for header
                 int totalActivities = drawSearchResults ? currentSearchResults.size() : manager.getAllActivities().size();
                 
                 if (rowIndex >= 0 && rowIndex < totalActivities) {
-                    // Action column starts at position 71 characters * 8 pixels/char = ~568 pixels
-                    // But let's use a broader range starting from column position ~65 characters
-                    // Column positions: x=20 + (character_position * 8)
-                    // Action column starts around character 65, so x = 20 + 65*8 = 540
-                    if (x >= 500 && x <= 600) {
-                        if (x >= 500 && x <= 550) {
-                            // Edit button area - first part of action column
-                            selectedActivityIndex = rowIndex;
-                            editMode = true;
-                            
-                            const Activity& activity = drawSearchResults ? 
-                                currentSearchResults[rowIndex] : 
-                                manager.getAllActivities()[rowIndex];
-                            
-                            // Set form data for editing
-                            SetWindowTextA(hEditActivity, activity.name.c_str());
-                            isImportant = activity.isImportant;
-                            isUrgent = activity.isUrgent;
-                            
-                            // Update button states
-                            SetWindowTextA(hBtnImportant, isImportant ? "[!] Penting [DIPILIH]" : "[!] Penting");
-                            SetWindowTextA(hBtnNotImportant, !isImportant ? "[-] Tidak Penting [DIPILIH]" : "[-] Tidak Penting");
-                            SetWindowTextA(hBtnUrgent, isUrgent ? "[!!] Mendesak [DIPILIH]" : "[!!] Mendesak");
-                            SetWindowTextA(hBtnNotUrgent, !isUrgent ? "[~] Tidak Mendesak [DIPILIH]" : "[~] Tidak Mendesak");
-                            
-                            // Switch to ADD view for editing
-                            MoveWindow(hTextResult, 40, 140, 480, 300, TRUE);
-                            SwitchView(ViewMode::ADD);
-                            InvalidateRect(hwnd, NULL, TRUE);
-                            
-                        } else if (x >= 550 && x <= 600) {
-                            // Delete button area - second part of action column
-                            char confirmMsg[200];
-                            const Activity& activity = drawSearchResults ? 
-                                currentSearchResults[rowIndex] : 
-                                manager.getAllActivities()[rowIndex];
-                            
-                            sprintf(confirmMsg, "Yakin ingin menghapus aktivitas:\n\n\"%s\"?", activity.name.c_str());
-                            int result = MessageBoxA(hwnd, confirmMsg, "Konfirmasi Hapus", MB_YESNO | MB_ICONQUESTION);
-                            
-                            if (result == IDYES) {
-                                // Find the actual index in allActivities if we're in search mode
-                                int actualIndex = rowIndex;
-                                if (drawSearchResults) {
-                                    const auto& allActivities = manager.getAllActivities();
-                                    for (int i = 0; i < allActivities.size(); i++) {
-                                        if (allActivities[i].name == activity.name && 
-                                            allActivities[i].isImportant == activity.isImportant && 
-                                            allActivities[i].isUrgent == activity.isUrgent) {
-                                            actualIndex = i;
-                                            break;
-                                        }
+                    // Use same coordinates as in drawing function
+                    int tableX = 20; // Same as x in DrawTableDirect
+                    int actionColumnStart = tableX + 480; // Same as in drawing function
+                    int editButtonStart = actionColumnStart + 5;
+                    int editButtonEnd = editButtonStart + 35;
+                    int deleteButtonStart = actionColumnStart + 35 + 5 + 10;
+                    int deleteButtonEnd = deleteButtonStart + 35;
+                    
+                    if (x >= editButtonStart && x <= editButtonEnd) {
+                        // Edit button clicked - immediate response
+                        selectedActivityIndex = rowIndex;
+                        editMode = true;
+                        
+                        const Activity& activity = drawSearchResults ? 
+                            currentSearchResults[rowIndex] : 
+                            manager.getAllActivities()[rowIndex];
+                        
+                        // Set form data for editing
+                        SetWindowTextA(hEditActivity, activity.name.c_str());
+                        isImportant = activity.isImportant;
+                        isUrgent = activity.isUrgent;
+                        
+                        // Update button states
+                        SetWindowTextA(hBtnImportant, isImportant ? "[!] Penting [DIPILIH]" : "[!] Penting");
+                        SetWindowTextA(hBtnNotImportant, !isImportant ? "[-] Tidak Penting [DIPILIH]" : "[-] Tidak Penting");
+                        SetWindowTextA(hBtnUrgent, isUrgent ? "[!!] Mendesak [DIPILIH]" : "[!!] Mendesak");
+                        SetWindowTextA(hBtnNotUrgent, !isUrgent ? "[~] Tidak Mendesak [DIPILIH]" : "[~] Tidak Mendesak");
+                        
+                        // Switch to ADD view for editing
+                        MoveWindow(hTextResult, 40, 140, 480, 300, TRUE);
+                        SwitchView(ViewMode::ADD);
+                        InvalidateRect(hwnd, NULL, TRUE);
+                        
+                    } else if (x >= deleteButtonStart && x <= deleteButtonEnd) {
+                        // Delete button clicked - optimized processing
+                        const Activity& activity = drawSearchResults ? 
+                            currentSearchResults[rowIndex] : 
+                            manager.getAllActivities()[rowIndex];
+                        
+                        char confirmMsg[150];
+                        sprintf(confirmMsg, "Hapus aktivitas:\n\"%s\"?", activity.name.c_str());
+                        int result = MessageBoxA(hwnd, confirmMsg, "Konfirmasi Delete", MB_YESNO | MB_ICONQUESTION);
+                        
+                        if (result == IDYES) {
+                            // Immediate processing without additional loops
+                            if (drawSearchResults) {
+                                // Find and remove from main list
+                                const auto& allActivities = manager.getAllActivities();
+                                for (size_t i = 0; i < allActivities.size(); i++) {
+                                    const auto& act = allActivities[i];
+                                    if (act.name == activity.name && 
+                                        act.isImportant == activity.isImportant && 
+                                        act.isUrgent == activity.isUrgent) {
+                                        manager.removeActivity(i);
+                                        // Update search results immediately
+                                        currentSearchResults = manager.searchActivities(currentSearchKeyword);
+                                        break;
                                     }
                                 }
-                                
-                                manager.removeActivity(actualIndex);
-                                
-                                // Refresh display
-                                if (drawSearchResults) {
-                                    // Refresh search results
-                                    currentSearchResults = manager.searchActivities(currentSearchKeyword);
-                                } else {
-                                    manager.categorizeActivities();
-                                }
-                                InvalidateRect(hwnd, NULL, TRUE);
-                                
-                                MessageBoxA(hwnd, "Aktivitas berhasil dihapus!", "Info", MB_OK | MB_ICONINFORMATION);
+                            } else {
+                                manager.removeActivity(rowIndex);
+                                manager.categorizeActivities();
                             }
+                            
+                            // Single efficient repaint
+                            InvalidateRect(hwnd, NULL, TRUE);
                         }
                     }
                 }
+            }
+        }
+    }
+    break;
+    
+    case WM_MOUSEMOVE:
+    {
+        if (currentView == ViewMode::VIEW && (drawCustomTable || drawSearchResults)) {
+            int x = LOWORD(lParam);
+            int y = HIWORD(lParam);
+            
+            int tableX = 20; // Same as x in DrawTableDirect
+            int actionColumnStart = tableX + 480; // Same as in drawing function
+            int editButtonStart = actionColumnStart + 0;
+            int editButtonEnd = editButtonStart + 35;
+            int deleteButtonStart = actionColumnStart + 35 + 5 + 10;
+            int deleteButtonEnd = deleteButtonStart + 35;
+            
+            if ((x >= editButtonStart && x <= editButtonEnd) || (x >= deleteButtonStart && x <= deleteButtonEnd)) {
+                if (y >= 180) {
+                    int rowIndex = (y - 180) / 20;
+                    int totalActivities = drawSearchResults ? currentSearchResults.size() : manager.getAllActivities().size();
+                    
+                    if (rowIndex >= 0 && rowIndex < totalActivities) {
+                        SetCursor(LoadCursor(NULL, IDC_HAND));
+                        
+                        // Highlight the button area being hovered
+                        HDC hdc = GetDC(hwnd);
+                        RECT buttonRect;
+                        
+                        if (x >= editButtonStart && x <= editButtonEnd) {
+                            // Highlight Edit button with brighter background
+                            buttonRect.left = editButtonStart;
+                            buttonRect.top = 180 + (rowIndex * 25) + 17;
+                            buttonRect.right = editButtonEnd;
+                            buttonRect.bottom = buttonRect.top + 16;
+                            
+                            HBRUSH hoverBrush = CreateSolidBrush(RGB(180, 255, 180)); // Brighter green
+                            FillRect(hdc, &buttonRect, hoverBrush);
+                            DeleteObject(hoverBrush);
+                            
+                            // Draw border
+                            HPEN hoverPen = CreatePen(PS_SOLID, 2, RGB(0, 120, 0)); // Thicker border
+                            HPEN oldPen = (HPEN)SelectObject(hdc, hoverPen);
+                            HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, GetStockObject(NULL_BRUSH));
+                            Rectangle(hdc, buttonRect.left, buttonRect.top, buttonRect.right, buttonRect.bottom);
+                            SelectObject(hdc, oldPen);
+                            SelectObject(hdc, oldBrush);
+                            DeleteObject(hoverPen);
+                            
+                            // Redraw the text
+                            SetBkMode(hdc, TRANSPARENT);
+                            SetTextColor(hdc, RGB(0, 80, 0));
+                            TextOutA(hdc, buttonRect.left + 8, buttonRect.top + 2, "Edit", 4);
+                            
+                        } else if (x >= deleteButtonStart && x <= deleteButtonEnd) {
+                            // Highlight Delete button with brighter background
+                            buttonRect.left = deleteButtonStart;
+                            buttonRect.top = 180 + (rowIndex * 25) + 17;
+                            buttonRect.right = deleteButtonEnd;
+                            buttonRect.bottom = buttonRect.top + 16;
+                            buttonRect.right = deleteButtonEnd;
+                            buttonRect.bottom = buttonRect.top + 16;
+                            
+                            HBRUSH hoverBrush = CreateSolidBrush(RGB(255, 180, 180)); // Brighter red
+                            FillRect(hdc, &buttonRect, hoverBrush);
+                            DeleteObject(hoverBrush);
+                            
+                            // Draw border
+                            HPEN hoverPen = CreatePen(PS_SOLID, 2, RGB(180, 0, 0)); // Thicker border
+                            HPEN oldPen = (HPEN)SelectObject(hdc, hoverPen);
+                            HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, GetStockObject(NULL_BRUSH));
+                            Rectangle(hdc, buttonRect.left, buttonRect.top, buttonRect.right, buttonRect.bottom);
+                            SelectObject(hdc, oldPen);
+                            SelectObject(hdc, oldBrush);
+                            DeleteObject(hoverPen);
+                            
+                            // Redraw the text
+                            SetBkMode(hdc, TRANSPARENT);
+                            SetTextColor(hdc, RGB(120, 0, 0));
+                            TextOutA(hdc, buttonRect.left + 5, buttonRect.top + 2, "Delete", 6);
+                        }
+                        
+                        ReleaseDC(hwnd, hdc);
+                    } else {
+                        SetCursor(LoadCursor(NULL, IDC_ARROW));
+                    }
+                } else {
+                    SetCursor(LoadCursor(NULL, IDC_ARROW));
+                }
+            } else {
+                SetCursor(LoadCursor(NULL, IDC_ARROW));
             }
         }
     }
@@ -707,10 +972,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
                    LPSTR lpCmdLine, int nCmdShow)
 {
-    // Load saved data at startup
-    manager.loadFromCSV();
-    
-    // Setup window
+    // Setup window first, data will be loaded in WM_CREATE
     WNDCLASSEXA wc = { 0 };
     wc.cbSize = sizeof(WNDCLASSEXA);
     wc.lpfnWndProc = WndProc;

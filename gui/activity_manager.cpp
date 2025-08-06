@@ -181,6 +181,13 @@ void ActivityManager::saveToCSV(const std::string& filename) const {
 }
 
 void ActivityManager::loadFromCSV(const std::string& filename) {
+    // Clear existing data first to prevent duplicates
+    allActivities.clear();
+    quadrantI.clear();
+    quadrantII.clear();
+    quadrantIII.clear();
+    quadrantIV.clear();
+    
     std::ifstream file(filename);
     if (file.is_open()) {
         std::string line;
